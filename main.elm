@@ -37,6 +37,7 @@ initialState =
         , lastMoved = 0
         , lastFell = 0
         }
+    , spawned = 0
     , keysDown = KeysDown.initial
     , grid = Grid.new width height
     }
@@ -58,6 +59,7 @@ update message model =
                 , orientation = 0
                 , shape = shape
                 }
+                , spawned = model.spawned + 1
             }
 
         KeysDownMsg msg ->
@@ -143,9 +145,12 @@ collides tetromino grid =
         List.any collides positions
 
 view model =
-    draw (Collage.filled (Color.rgb 200 200 200) (Collage.rect screenWidth screenHeight)
+    Html.div []
+    [ Html.text <| "Minoes survived: " ++ (toString model.spawned)
+    , draw (Collage.filled (Color.rgb 200 200 200) (Collage.rect screenWidth screenHeight)
         :: (drawFalling model.fallingTetromino)
         ++ (List.map box (Grid.positions model.grid)))
+    ]
 
 drawFalling tetromino =
     List.map box (absolutePositions tetromino)

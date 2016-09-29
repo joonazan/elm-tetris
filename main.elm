@@ -137,10 +137,17 @@ rotate tetromino time keyPressed grid =
     let
         rotated =
             { tetromino | orientation = (tetromino.orientation + 1) % 4 }
+        rotateds =
+            [ rotated
+            , { rotated | position = Position.add rotated.position (1, 0) }
+            , { rotated | position = Position.add rotated.position (-1, 0) }
+            ]
+        possible = List.filter (\r -> not (collides r grid)) rotateds
     in
-        if time - tetromino.lastMoved > moveCooldown && keyPressed up
-        && not (collides rotated grid) then
-            { rotated | lastMoved = time }   
+        if time - tetromino.lastMoved > moveCooldown && keyPressed up then
+            case possible of
+                head :: _ -> { head | lastMoved = time }
+                [] -> tetromino
         else
             tetromino
 

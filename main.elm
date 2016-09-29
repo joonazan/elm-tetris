@@ -40,6 +40,7 @@ initialState =
     , spawned = 0
     , keysDown = KeysDown.initial
     , grid = Grid.new width height
+    , gameOver = False
     }
 
 type Message
@@ -80,15 +81,22 @@ updateGame model =
             move model.fallingTetromino model.time keyPressed model.grid
         newModel =
             { model | keysDown = KeysDown.frameEnded model.keysDown }
+        (newGrid, gameOver) =
+            writeTetromino movedTetromino model.grid
     in
         if hitGround then
-            ( { newModel | grid = Grid.removeRows <| writeTetromino movedTetromino model.grid }
+            ( { newModel | grid = newGrid, gameOver = gameOver }
             , Random.generate SpawnTetromino (Random.int 0 (Array.length tetrominos - 1)))
         else
             noEffect { newModel | fallingTetromino = movedTetromino }
 
 writeTetromino tetromino grid =
-        List.foldl Grid.set grid (absolutePositions tetromino)
+    let
+        positions = (absolutePositions tetromino)
+        gameOver =
+            List.any (\(x, y) -> y >= height) positions
+    in
+        (Grid.removeRows <| List.foldl Grid.set grid positions, gameOver)
 
 -- TODO: Low framerates can make the block move slightly slower. Find a way to prevent that.
 moveCooldown = 100
@@ -146,11 +154,17 @@ collides tetromino grid =
 
 view model =
     Html.div []
-    [ Html.text <| "Minoes survived: " ++ (toString model.spawned)
+    [ Html.text <| status model
     , draw (Collage.filled (Color.rgb 200 200 200) (Collage.rect screenWidth screenHeight)
         :: (drawFalling model.fallingTetromino)
         ++ (List.map box (Grid.positions model.grid)))
     ]
+
+status model =
+    if model.gameOver then
+        "Game over."
+    else
+        "Minoes survived: " ++ (toString model.spawned)
 
 drawFalling tetromino =
     List.map box (absolutePositions tetromino)

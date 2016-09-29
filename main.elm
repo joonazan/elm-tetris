@@ -81,7 +81,7 @@ updateGame model =
     in
         if hitGround then
             ( { newModel | grid = Grid.removeRows <| writeTetromino movedTetromino model.grid }
-            , Random.generate SpawnTetromino (Random.int 0 (Array.length tetrominos)))
+            , Random.generate SpawnTetromino (Random.int 0 (Array.length tetrominos - 1)))
         else
             noEffect { newModel | fallingTetromino = movedTetromino }
 

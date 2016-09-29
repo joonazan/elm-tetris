@@ -7,7 +7,7 @@ import Set
 size = 4
 
 tetrominos =
-    Array.fromList <| Set.toList <| Set.fromList (allVariations [(0, 0)])
+    Array.fromList <| Set.toList <| Set.fromList (List.map canonicalize (allVariations [(0, 0)]))
 
 adjacent (x, y) =
     [(x+1, y), (x-1, y), (x, y-1), (x, y+1)]
@@ -34,18 +34,22 @@ canonicalize tetromino =
             List.map (\x -> rotate x centered) [0..4]
         cmp (x1, y1) (x2, y2) =
             if x1 > x2 || (x1 == x2 && y1 > y2) then
-                1
+                GT
             else if x1 == x2 && y1 == y2 then
-                0
+                EQ
             else
-                -1
+                LT
+        sorted = List.map (List.sortWith cmp) orientations
         first t1 t2 =
             let smaller = List.foldl (\new verdict ->
-                    if verdict == 0 then new else verdict) 0 (List.map2 cmp t1 t2)
-            in if smaller == 1 then t1 else t2
+                    if verdict == EQ then new else verdict) EQ (List.map2 cmp t1 t2)
+            in if smaller == GT then t1 else t2
 
     in
-        List.foldl first centered orientations
+        case sorted of
+            head :: tail ->
+                List.foldl first head tail
+            [] -> []
 
 center tetromino =
     let

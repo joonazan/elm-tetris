@@ -44,7 +44,6 @@ canonicalize tetromino =
             let smaller = List.foldl (\new verdict ->
                     if verdict == EQ then new else verdict) EQ (List.map2 cmp t1 t2)
             in if smaller == GT then t1 else t2
-
     in
         case sorted of
             head :: tail ->

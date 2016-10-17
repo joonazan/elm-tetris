@@ -107,49 +107,56 @@ move tetromino time keyPressed grid =
         translate offset tetromino =
             { tetromino | position = Position.add tetromino.position offset }
 
-        -- rotating
-        rotated =
-            { tetromino | orientation = (tetromino.orientation + 1) % 4 }
-        rotateds =
-            [ rotated
-            , translate (1, 0) rotated
-            , translate (-1, 0) rotated
-            ]
-        possible = List.filter (\r -> not (collides r grid)) rotateds
+        nonoverlapping tetromino =
+            not (collides tetromino grid)
         
-        afterRotation =
-            if time - tetromino.lastMoved > moveCooldown && keyPressed up then
-                case possible of
-                    head :: _ -> { head | lastMoved = time }
-                    [] -> tetromino
-            else
-                tetromino
+        rotate tetromino =
+            let
+                rotated =
+                    { tetromino | orientation = (tetromino.orientation + 1) % 4 }
+                rotateds =
+                    [ rotated
+                    , translate (1, 0) rotated
+                    , translate (-1, 0) rotated
+                    ]
+                possible = List.filter nonoverlapping rotateds
+            in
+                if time - tetromino.lastMoved > moveCooldown && keyPressed up then
+                    case possible of
+                        head :: _ -> { head | lastMoved = time }
+                        [] -> tetromino
+                else
+                    tetromino
 
-        -- moving sideways
-        strafeDirection =
-            (if keyPressed left then -1 else 0) + (if keyPressed right then 1 else 0)
-        moved =
-            { translate (strafeDirection, 0) afterRotation }
-        
-        afterMoving =
-            if time - afterRotation.lastMoved > moveCooldown
-                && strafeDirection /= 0
-                && not (collides moved grid) then
-                { moved | lastMoved = time }   
-            else
-                afterRotation
+        move tetromino =
+            let
+                strafeDirection =
+                    (if keyPressed left then -1 else 0) + (if keyPressed right then 1 else 0)
+                translated = translate (strafeDirection, 0) tetromino
+                moved =
+                    { translated | lastMoved = time }
+            in
+                if time - tetromino.lastMoved > moveCooldown
+                    && strafeDirection /= 0
+                    && nonoverlapping moved then
+                    moved
+                else
+                    tetromino
 
-    -- moving down & falling
-        dt = time - tetromino.lastFell
-        fallen = { afterMoving | position = Position.add afterMoving.position (0, -1)}
+        drop tetromino =
+            let
+                dt = time - tetromino.lastFell
+                fallen = translate (0, -1) tetromino
+            in
+                if dt > dropCooldown || (dt > moveCooldown && keyPressed down) then
+                    if collides fallen grid then
+                        (tetromino, True)
+                    else
+                        ({ fallen | lastFell = time}, False)
+                else
+                    (tetromino, False)
     in
-        if dt > dropCooldown || (dt > moveCooldown && keyPressed down) then
-            if collides fallen grid then
-                (afterMoving, True)
-            else
-                ({ fallen | lastFell = time}, False)
-        else
-            (afterMoving, False)
+        drop <| move <| rotate tetromino
 
 collides tetromino grid =
     let

@@ -5,7 +5,10 @@ import Position
 import Set
 
 tetrominos size =
-    Array.fromList <| Set.toList <| Set.fromList (List.map canonicalize (allVariations size [(0, 0)]))
+    Array.fromList <| allVariations size [(0, 0)]
+
+removeDuplicates minos =
+    Set.toList <| Set.fromList (List.map canonicalize minos)
 
 adjacent (x, y) =
     [(x+1, y), (x-1, y), (x, y-1), (x, y+1)]
@@ -18,12 +21,12 @@ allVariations size =
                     adjacents = (List.concatMap adjacent partial)
                     free = List.filter (\x -> not <| List.member x partial) adjacents
                 in
-                    List.map (\x -> x :: partial) free
+                    removeDuplicates <| List.map (\x -> x :: partial) free
         in
             if (List.length partial) == size then
                 [partial]
             else
-                List.concatMap allVariations oneLevel
+                removeDuplicates <| List.concatMap allVariations oneLevel
     in
         allVariations
 

@@ -97,53 +97,60 @@ moveCooldown = 100
 dropCooldown = 1000
 
 move tetromino time keyPressed grid =
-    let rotated = rotate tetromino time keyPressed grid
-    in moveVertically (moveHorizontally rotated time keyPressed grid) time keyPressed grid
-
-moveVertically tetromino time keyPressed grid =
     let
-        dt = time - tetromino.lastFell
-        withNewPos = { tetromino | position = Position.add tetromino.position (0, -1)}
-    in
-        if dt > dropCooldown || (dt > moveCooldown && keyPressed down) then
-            if collides withNewPos grid then
-                (tetromino, True)
-            else
-                ({ withNewPos | lastFell = time}, False)
-        else
-            (tetromino, False)
+        translate offset tetromino =
+            { tetromino | position = Position.add tetromino.position offset }
 
-moveHorizontally tetromino time keyPressed grid =
-    let
-        strafeDirection =
-            (if keyPressed left then -1 else 0) + (if keyPressed right then 1 else 0)
-        withNewPos =
-            { tetromino | position = Position.add tetromino.position (strafeDirection, 0) }
-    in
-        if time - tetromino.lastMoved > moveCooldown
-            && strafeDirection /= 0
-            && not (collides withNewPos grid) then
-            { withNewPos | lastMoved = time }   
-        else
-            tetromino
+        nonoverlapping tetromino =
+            not (collides tetromino grid)
+        
+        rotate tetromino =
+            let
+                rotated =
+                    { tetromino | orientation = (tetromino.orientation + 1) % 4 }
+                rotateds =
+                    [ rotated
+                    , translate (1, 0) rotated
+                    , translate (-1, 0) rotated
+                    ]
+                possible = List.filter nonoverlapping rotateds
+            in
+                if time - tetromino.lastMoved > moveCooldown && keyPressed up then
+                    case possible of
+                        head :: _ -> { head | lastMoved = time }
+                        [] -> tetromino
+                else
+                    tetromino
 
-rotate tetromino time keyPressed grid =
-    let
-        rotated =
-            { tetromino | orientation = (tetromino.orientation + 1) % 4 }
-        rotateds =
-            [ rotated
-            , { rotated | position = Position.add rotated.position (1, 0) }
-            , { rotated | position = Position.add rotated.position (-1, 0) }
-            ]
-        possible = List.filter (\r -> not (collides r grid)) rotateds
+        move tetromino =
+            let
+                strafeDirection =
+                    (if keyPressed left then -1 else 0) + (if keyPressed right then 1 else 0)
+                translated = translate (strafeDirection, 0) tetromino
+                moved =
+                    { translated | lastMoved = time }
+            in
+                if time - tetromino.lastMoved > moveCooldown
+                    && strafeDirection /= 0
+                    && nonoverlapping moved then
+                    moved
+                else
+                    tetromino
+
+        drop tetromino =
+            let
+                dt = time - tetromino.lastFell
+                fallen = translate (0, -1) tetromino
+            in
+                if dt > dropCooldown || (dt > moveCooldown && keyPressed down) then
+                    if collides fallen grid then
+                        (tetromino, True)
+                    else
+                        ({ fallen | lastFell = time}, False)
+                else
+                    (tetromino, False)
     in
-        if time - tetromino.lastMoved > moveCooldown && keyPressed up then
-            case possible of
-                head :: _ -> { head | lastMoved = time }
-                [] -> tetromino
-        else
-            tetromino
+        drop <| move <| rotate tetromino
 
 collides shapes grid tetromino =
     let

@@ -1,11 +1,19 @@
-module KeysDown exposing (keyPressed, frameEnded, Message, initial, update, subscriptions)
+module KeysDown exposing (Model, keyPressed, frameEnded, Message, initial, update, subscriptions)
 
 import Keyboard
 import Dict
 
+type alias Model =
+    { pressedKeys : KeyDict
+    , previousKeys : KeyDict
+    , tappedKeys : KeyDict
+    }
+type alias KeyDict = Dict.Dict Keyboard.KeyCode Bool
+
 keyPressed key model =
     (getKey key model.pressedKeys) || (getKey key model.tappedKeys)
 
+initial : Model
 initial =
     { pressedKeys = Dict.empty
     , previousKeys = Dict.empty

@@ -20,6 +20,28 @@ subscriptions = Sub.batch
 
 spawnPos (width, height) = (width // 2, height)
 
+type alias Shapes = Array.Array (Int, Int)
+
+type alias State =
+    { shapes : Shapes
+    , dimensions : (Int, Int)
+    , time : Float
+    , fallingTetromino : FallingPiece
+    , spawned : Int
+    , keysDown : KeysDown.Model
+    , grid : Grid.Grid
+    , gameOver : Bool
+    }
+
+type alias FallingPiece =
+    { position: Position.Position
+    , orientation: Int
+    , shape: Int
+    , lastMoved: Int
+    , lastFell: Int
+    }
+
+initial : Shapes -> (Int, Int) -> State
 initial shapes dimensions =
     { shapes = shapes
     , dimensions = dimensions
@@ -72,7 +94,7 @@ updateGame model =
         keyPressed key =
             KeysDown.keyPressed key model.keysDown
         (movedTetromino, hitGround) =
-            move model.fallingTetromino model.time keyPressed model.grid
+            move model.shapes model.grid model.fallingTetromino model.time keyPressed
         newModel =
             { model | keysDown = KeysDown.frameEnded model.keysDown }
         (newGrid, gameOver) =
@@ -96,13 +118,13 @@ writeTetromino tetromino grid =
 moveCooldown = 100
 dropCooldown = 1000
 
-move tetromino time keyPressed grid =
+move shapes grid tetromino time keyPressed =
     let
         translate offset tetromino =
             { tetromino | position = Position.add tetromino.position offset }
 
         nonoverlapping tetromino =
-            not (collides tetromino grid)
+            not (collides shapes grid tetromino)
         
         rotate tetromino =
             let

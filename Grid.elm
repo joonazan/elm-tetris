@@ -2,6 +2,8 @@ module Grid exposing (..)
 
 import Array
 
+type alias Grid = Array.Array (Array.Array Bool)
+
 new width height =
     Array.initialize height (always (Array.initialize width (always False)))
 

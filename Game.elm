@@ -1,4 +1,4 @@
-module Game exposing (subscriptions, initial, update, view)
+module Game exposing (Message, Model, subscriptions, initial, update, view)
 
 import Html
 import Html.App
@@ -18,11 +18,9 @@ subscriptions = Sub.batch
     , KeysDown.subscriptions KeysDownMsg
     ]
 
-spawnPos (width, height) = (width // 2, height)
+type alias Shapes = Array.Array (List (Int, Int))
 
-type alias Shapes = Array.Array (Int, Int)
-
-type alias State =
+type alias Model =
     { shapes : Shapes
     , dimensions : (Int, Int)
     , time : Float
@@ -37,17 +35,17 @@ type alias FallingPiece =
     { position: Position.Position
     , orientation: Int
     , shape: Int
-    , lastMoved: Int
-    , lastFell: Int
+    , lastMoved: Float
+    , lastFell: Float
     }
 
-initial : Shapes -> (Int, Int) -> State
+initial : Shapes -> (Int, Int) -> Model
 initial shapes dimensions =
     { shapes = shapes
     , dimensions = dimensions
     , time = 0
     , fallingTetromino = 
-        { position = spawnPos
+        { position = spawnPos dimensions
         , orientation = 0
         , shape = 0
         , lastMoved = 0
@@ -55,15 +53,18 @@ initial shapes dimensions =
         }
     , spawned = 0
     , keysDown = KeysDown.initial
-    , grid = Grid.new dimensions
+    , grid = Grid.new (fst dimensions) (snd dimensions)
     , gameOver = False
     }
+
+spawnPos (width, height) = (width // 2, height)
 
 type Message
     = TimePassed Float
     | SpawnTetromino Int
     | KeysDownMsg KeysDown.Message
 
+update : Message -> Model -> (Model, Cmd Message)
 update message model =
     case message of
         TimePassed millis ->
@@ -72,7 +73,7 @@ update message model =
         SpawnTetromino shape ->
             let ft = model.fallingTetromino
             in noEffect { model | fallingTetromino =
-                { ft | position = spawnPos
+                { ft | position = spawnPos model.dimensions
                 , orientation = 0
                 , shape = shape
                 }
@@ -89,6 +90,7 @@ right = 39
 up = 38
 down = 40
 
+updateGame : Model -> (Model, Cmd Message)
 updateGame model =
     let
         keyPressed key =
@@ -98,7 +100,7 @@ updateGame model =
         newModel =
             { model | keysDown = KeysDown.frameEnded model.keysDown }
         (newGrid, gameOver) =
-            writeTetromino movedTetromino model.grid
+            writeTetromino model.shapes movedTetromino model.grid
     in
         if hitGround then
             ( { newModel | grid = newGrid, gameOver = gameOver }
@@ -106,9 +108,9 @@ updateGame model =
         else
             noEffect { newModel | fallingTetromino = movedTetromino }
 
-writeTetromino tetromino grid =
+writeTetromino shapes tetromino grid =
     let
-        positions = (absolutePositions tetromino)
+        positions = (absolutePositions shapes tetromino)
         gameOver =
             List.any (\(x, y) -> y >= Grid.height grid) positions
     in
@@ -118,6 +120,7 @@ writeTetromino tetromino grid =
 moveCooldown = 100
 dropCooldown = 1000
 
+move : Shapes -> Grid.Grid -> FallingPiece -> Float -> (Int -> Bool) -> (FallingPiece, Bool)
 move shapes grid tetromino time keyPressed =
     let
         translate offset tetromino =
@@ -165,10 +168,10 @@ move shapes grid tetromino time keyPressed =
                 fallen = translate (0, -1) tetromino
             in
                 if dt > dropCooldown || (dt > moveCooldown && keyPressed down) then
-                    if collides fallen grid then
-                        (tetromino, True)
-                    else
+                    if nonoverlapping fallen then
                         ({ fallen | lastFell = time}, False)
+                    else
+                        (tetromino, True)
                 else
                     (tetromino, False)
     in
@@ -176,7 +179,7 @@ move shapes grid tetromino time keyPressed =
 
 collides shapes grid tetromino =
     let
-        positions = absolutePositions tetromino shapes
+        positions = absolutePositions shapes tetromino
         collides (x, y) =
             y < 0 || x < 0 || x >= Grid.width grid || (Grid.at (x, y) grid)
     in
@@ -194,6 +197,8 @@ view model =
     let
         screenWidth = (Grid.width model.grid)*boxSize
         screenHeight = (Grid.height model.grid)*boxSize
+        fWidth = toFloat screenWidth
+        fHeight = toFloat screenHeight
 
         draw shapes = Element.toHtml <| Collage.collage screenWidth screenHeight shapes
 
@@ -205,8 +210,8 @@ view model =
             let
                 blackSquare = Collage.filled black (Collage.rect boxSize boxSize)
                 screenPos =
-                    ( toFloat x*boxSize - (screenWidth/2) + (boxSize/2)
-                    , toFloat y*boxSize - (screenHeight/2) + (boxSize/2)
+                    ( toFloat x*boxSize - (fWidth/2) + (boxSize/2)
+                    , toFloat y*boxSize - (fHeight/2) + (boxSize/2)
                     )
             in
                 Collage.move screenPos blackSquare
@@ -216,7 +221,7 @@ view model =
     in
         Html.div []
         [ Html.text <| status model
-        , draw (Collage.filled (Color.rgb 200 200 200) (Collage.rect screenWidth screenHeight)
+        , draw (Collage.filled (Color.rgb 200 200 200) (Collage.rect fWidth fHeight)
             :: (drawFalling model.fallingTetromino)
             ++ (List.map box (Grid.positions model.grid)))
         ]
